@@ -39,8 +39,18 @@ _CSS = """
 [data-testid="stMetric"] { background:#fff; border:1px solid var(--line); border-radius:14px; padding:.65rem .8rem; }
 [data-testid="stMetricLabel"] { color:var(--muted); }
 [data-testid="stAlert"] { border-radius:12px; }
-.stButton > button { border-radius:10px; min-height:2.75rem; font-weight:650; }
-.stTextInput input, .stSelectbox div[data-baseweb="select"] { border-radius:10px; }
+.stButton > button { border-radius:10px; min-height:2.75rem; font-weight:650; color:#17243b !important; background:#fff !important; border:1px solid #cbd6e5 !important; }
+.stButton > button:hover:not(:disabled) { color:#183a75 !important; background:#edf3ff !important; border-color:#9bb3ef !important; }
+.stButton > button:disabled { color:#66758d !important; background:#e7edf6 !important; border-color:#d1dae7 !important; opacity:1 !important; }
+.stButton > button[data-testid="stBaseButton-primary"], .stButton > button[kind="primary"] { color:#fff !important; background:#3159c9 !important; border-color:#3159c9 !important; }
+.stButton > button[data-testid="stBaseButton-primary"]:hover:not(:disabled), .stButton > button[kind="primary"]:hover:not(:disabled) { color:#fff !important; background:#2448ad !important; border-color:#2448ad !important; }
+.stButton > button[data-testid="stBaseButton-primary"]:disabled, .stButton > button[kind="primary"]:disabled { color:#66758d !important; background:#e7edf6 !important; border-color:#d1dae7 !important; opacity:1 !important; }
+.stTextInput input, .stSelectbox div[data-baseweb="select"] { border-radius:10px; color:#17243b !important; background:#fff !important; }
+.stSelectbox [role="combobox"] { color:#17243b !important; }
+[data-testid="stFileUploaderDropzone"] { background:#fff !important; border:1px dashed #9aa9bd !important; }
+[data-testid="stFileUploaderDropzoneInstructions"], [data-testid="stFileUploaderDropzoneInstructions"] * { color:#45536a !important; }
+[data-testid="stFileUploaderDropzone"] button { color:#fff !important; background:#3159c9 !important; border-color:#3159c9 !important; }
+[data-testid="stFileUploaderDropzone"] button * { color:#fff !important; }
 .brand-panel { border-radius:22px; padding:1.45rem 1.7rem; margin:.35rem 0 1.1rem; color:#fff;
  background:radial-gradient(circle at 88% 15%,rgba(123,210,223,.42),transparent 25%),linear-gradient(120deg,#163b76 0%,#295bc5 60%,#337cc6 100%);
  box-shadow:0 14px 35px rgba(30,69,133,.15); }

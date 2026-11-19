@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "officeflow"
+version = "0.1.0"
+description = "Chuyen Word, Excel va PowerPoint sang PDF theo lo, chay cuc bo."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "streamlit[pdf]>=1.55,<2",
+    "pypdf>=5,<7",
+    "Pillow>=10,<13",
+    "ocrmypdf>=17,<18",
+    "pypdfium2>=4",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

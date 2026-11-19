@@ -49,8 +49,9 @@ _CSS = """
 .stSelectbox [role="combobox"] { color:#17243b !important; }
 [data-testid="stFileUploaderDropzone"] { background:#fff !important; border:1px dashed #9aa9bd !important; }
 [data-testid="stFileUploaderDropzoneInstructions"], [data-testid="stFileUploaderDropzoneInstructions"] * { color:#45536a !important; }
-[data-testid="stFileUploaderDropzone"] button { color:#fff !important; background:#3159c9 !important; border-color:#3159c9 !important; }
-[data-testid="stFileUploaderDropzone"] button * { color:#fff !important; }
+[data-testid="stFileUploaderDropzone"] button { color:#17243b !important; background:#fff !important; border-color:#cbd6e5 !important; }
+[data-testid="stFileUploaderDropzone"] button:hover:not(:disabled) { color:#17243b !important; background:#edf3ff !important; border-color:#9bb3ef !important; }
+[data-testid="stFileUploaderDropzone"] button * { color:#17243b !important; }
 .brand-panel { border-radius:22px; padding:1.45rem 1.7rem; margin:.35rem 0 1.1rem; color:#fff;
  background:radial-gradient(circle at 88% 15%,rgba(123,210,223,.42),transparent 25%),linear-gradient(120deg,#163b76 0%,#295bc5 60%,#337cc6 100%);
  box-shadow:0 14px 35px rgba(30,69,133,.15); }

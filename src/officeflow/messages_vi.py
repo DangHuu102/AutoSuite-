@@ -49,6 +49,7 @@ ISSUE_MESSAGES = {
 }
 
 LIBREOFFICE_MISSING = (
-    "Không tìm thấy LibreOffice. Hãy cài LibreOffice Desktop hoặc thêm thư mục chứa "
-    "soffice.exe vào PATH rồi mở lại ứng dụng."
+    "Bản OfficeFlow hiện dùng LibreOffice làm bộ máy dàn trang và xuất PDF tại máy cho DOCX/XLSX/PPTX. "
+    "Microsoft Office đã cài vẫn không được app tự gọi. Cài LibreOffice Desktop bằng "
+    "`winget install -e --id TheDocumentFoundation.LibreOffice`; chỉ xử lý PDF/ảnh scan thì không cần LibreOffice."
 )

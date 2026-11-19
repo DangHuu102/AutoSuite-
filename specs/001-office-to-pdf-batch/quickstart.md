@@ -6,8 +6,8 @@ Hướng dẫn chạy prototype và xác nhận bằng tay; kết quả OCR cầ
 
 - Windows 11.
 - Python 3.12 và các gói ứng dụng đã cài trong môi trường ảo.
-- LibreOffice đã cài để xử lý .docx, .xlsx, .pptx.
-- OCRmyPDF, Tesseract và gói ngôn ngữ OCR đã cài cục bộ để xử lý PDF/ảnh scan. Tối thiểu cần `vie.traineddata`; `eng.traineddata` cần cho tiếng Anh hoặc `vie+eng`.
+- LibreOffice đã cài để xử lý .docx, .xlsx, .pptx. Đây là bộ máy xuất PDF của prototype; Microsoft Office đã cài không được app tự gọi. Cài song song bằng `winget install -e --id TheDocumentFoundation.LibreOffice` nếu chưa có.
+- OCRmyPDF, Tesseract và gói ngôn ngữ OCR đã cài cục bộ để xử lý PDF/ảnh scan. Tối thiểu cần `vie.traineddata`; `eng.traineddata` cần cho tiếng Anh hoặc `vie+eng`. LibreOffice không cần nếu lô chỉ có PDF/ảnh.
 - Bộ mẫu giả lập: một file .docx tiếng Việt, .xlsx nhiều trang tính, .pptx có slide ẩn, PDF scan nhiều trang và ảnh có chữ in rõ.
 - Không dùng hồ sơ hoặc tài liệu nội bộ thật trong bước đầu.
 - (Tùy chọn) Ollama và một model local nếu cần gợi ý lọc AI. Chuyển đổi/OCR không phụ thuộc AI.
@@ -52,6 +52,6 @@ Giao diện dự kiến mở tại địa chỉ localhost hiển thị trong ter
 - Python 3.12.16 và dependencies của project đã được cài trong `.venv`.
 - Lệnh `python -m compileall -q src/officeflow` chạy thành công.
 - Health endpoint của Streamlit trả HTTP 200; app được phục vụ trên `127.0.0.1:8501`.
-- Chưa tìm thấy LibreOffice, Tesseract hoặc Ollama. OCRmyPDF đã có trong môi trường Python, nhưng OCR chưa chạy được khi thiếu Tesseract và dữ liệu ngôn ngữ.
+- Microsoft Office desktop có trên máy, nhưng prototype hiện không tự động hóa Office và vẫn cần LibreOffice cho DOCX/XLSX/PPTX. Chưa tìm thấy LibreOffice, Tesseract hoặc Ollama. OCRmyPDF đã có trong môi trường Python, nhưng OCR chưa chạy được khi thiếu Tesseract và dữ liệu ngôn ngữ.
 - Chưa xác nhận chuyển đổi tài liệu, chất lượng đầu ra OCR hoặc phản hồi của model AI thật. Cần cài các phần phụ thuộc hệ thống và một model Ollama cục bộ rồi chạy luồng chấp nhận ở trên.
 

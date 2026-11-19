@@ -18,9 +18,9 @@ Người dùng đã chọn luồng cho nhân viên văn phòng: nhiều tệp Wo
 
 ## Quyết định 2: Dùng LibreOffice CLI làm bộ chuyển đổi đầu tiên
 
-**Decision**: Chạy LibreOffice cục bộ ở chế độ không giao diện để xuất PDF vào thư mục tạm.
+**Decision**: Chạy LibreOffice cục bộ ở chế độ không giao diện để xuất PDF vào thư mục tạm. Đây là yêu cầu có điều kiện: chỉ lô DOCX/XLSX/PPTX cần LibreOffice; lô OCR PDF/ảnh không cần bộ máy Office.
 
-**Rationale**: LibreOffice có bộ lọc mở các định dạng Word, Excel, PowerPoint và hỗ trợ lệnh dòng lệnh xuất PDF trên Windows. Các tham số PDF có thể điều khiển trang, ghi chú và slide ẩn. [LibreOffice: Microsoft Office formats](https://help.libreoffice.org/latest/en-US/text/shared/guide/ms_user.html?DbPAR=IMPRESS&System=WIN), [LibreOffice: PDF CLI parameters](https://help.libreoffice.org/latest/en-GB/text/shared/guide/pdf_params.html?DbPAR=CALC&System=MAC), [LibreOffice: conversion filter names](https://help.libreoffice.org/latest/gu/text/shared/guide/convertfilters.html)
+**Rationale**: LibreOffice có bộ lọc mở các định dạng Word, Excel, PowerPoint và hỗ trợ lệnh dòng lệnh xuất PDF trên Windows. Python chỉ điều phối giao diện; nó không thay thế bộ máy dàn trang Office. LibreOffice miễn phí, chạy cục bộ và không gửi tài liệu lên cloud. Nó cài song song với Microsoft Office, không thay thế Office. Các tham số PDF có thể điều khiển trang, ghi chú và slide ẩn. [LibreOffice: Microsoft Office formats](https://help.libreoffice.org/latest/en-US/text/shared/guide/ms_user.html?DbPAR=IMPRESS&System=WIN), [LibreOffice: PDF CLI parameters](https://help.libreoffice.org/latest/en-GB/text/shared/guide/pdf_params.html?DbPAR=CALC&System=MAC), [LibreOffice: conversion filter names](https://help.libreoffice.org/latest/gu/text/shared/guide/convertfilters.html)
 
 **Alternatives considered**:
 

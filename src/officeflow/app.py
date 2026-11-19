@@ -200,6 +200,12 @@ def _new_batch_screen() -> None:
         "Mỗi tệp tạo một PDF riêng. Nhận Word, Excel, PowerPoint, PDF scan và ảnh; "
         "không tự quét thư mục con."
     )
+    with st.expander("Vì sao cần LibreOffice cho tệp Office?", expanded=False):
+        st.write(
+            "Bản prototype dùng LibreOffice làm bộ máy đọc bố cục Word/Excel/PowerPoint và xuất PDF "
+            "ngay trên máy. Python chỉ điều phối giao diện và lô tệp; Microsoft Office đã cài không "
+            "được app tự điều khiển. Nếu chỉ chọn PDF hoặc ảnh scan để OCR thì LibreOffice không cần."
+        )
     with st.container(border=True):
         uploads = st.file_uploader(
             "Chọn tệp từ máy tính",

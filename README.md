@@ -6,8 +6,10 @@
 
 - Windows 11 64-bit.
 - Python 3.12.
-- LibreOffice Desktop để chuyển `.docx`, `.xlsx`, `.pptx`.
+- LibreOffice Desktop để chuyển `.docx`, `.xlsx`, `.pptx`. Đây là bộ máy dàn trang/xuất PDF cục bộ của prototype, không phải gói Python và không thay Microsoft Office.
 - OCRmyPDF và Tesseract cho PDF/ảnh scan. Cài gói ngôn ngữ Tesseract tương ứng: `vie` mặc định, `eng` cho tiếng Anh, hoặc cả hai cho `vie+eng`.
+
+Python điều phối giao diện và các bước xử lý; tự nó không dàn trang tài liệu Office thành PDF. Bản hiện tại gọi LibreOffice ở chế độ dòng lệnh vì xử lý được cả Word, Excel và PowerPoint tại máy, không tải tài liệu lên dịch vụ ngoài. Việc Microsoft Office có sẵn trên máy không làm ứng dụng tự dùng Word/Excel/PowerPoint. Nếu chỉ OCR PDF/ảnh scan thì không cần LibreOffice.
 
 Ứng dụng chỉ lắng nghe tại `127.0.0.1`, xử lý tệp trên máy hiện tại và tắt usage statistics. Tệp được đưa vào thư mục tạm cục bộ khi xử lý; thư mục staging được dọn sau khi lưu/hủy và các lô bỏ dở được dọn sau 48 giờ.
 
@@ -23,7 +25,15 @@ uv pip install -e .
 
 Nếu đã cài Python 3.12 và Python Launcher, có thể dùng `py -3.12 -m venv .venv`, kích hoạt môi trường trên rồi chạy `python -m pip install -e .`.
 
-Cài LibreOffice Desktop và Tesseract 64-bit bằng bộ cài phù hợp với máy. OCRmyPDF được cài cùng gói Python của project; nếu Tesseract chưa có trong `PATH`, OCRmyPDF cũng dò các vị trí cài đặt Windows thông dụng. Trang cài đặt OCRmyPDF có hướng dẫn Windows hiện hành: [OCRmyPDF installation](https://ocrmypdf.readthedocs.io/en/stable/installation.html).
+Cài LibreOffice Desktop nếu cần chuyển tài liệu Office. Có thể tải từ [trang chính thức của LibreOffice](https://www.libreoffice.org/download/) hoặc dùng Windows Package Manager:
+
+```powershell
+winget install -e --id TheDocumentFoundation.LibreOffice
+```
+
+LibreOffice cài song song với Microsoft Office. Sau khi cài, khởi động lại OfficeFlow để ứng dụng dò `soffice.exe`.
+
+Chỉ cài Tesseract 64-bit nếu cần OCR. OCRmyPDF được cài cùng gói Python của project; nếu Tesseract chưa có trong `PATH`, OCRmyPDF cũng dò các vị trí cài đặt Windows thông dụng. Trang cài đặt OCRmyPDF có hướng dẫn Windows hiện hành: [OCRmyPDF installation](https://ocrmypdf.readthedocs.io/en/stable/installation.html).
 
 Nếu máy có Windows Package Manager, có thể cài Tesseract bằng:
 
@@ -72,6 +82,6 @@ AI gợi ý nhóm, giữ/bỏ qua/xem lại, lý do và tên PDF. Gợi ý khôn
 - OCR không đảm bảo chính xác với scan mờ, nghiêng, độ phân giải thấp hoặc chữ viết tay. Nội dung OCR chỉ để tìm kiếm/chọn/sao chép, không phải tài liệu Office đã chỉnh sửa.
 - OCR PDF sẽ bỏ qua trang đã có chữ để không xử lý lại lớp chữ sẵn có. Tệp nguồn không bị thay đổi.
 - Không OCR PDF đã ký số nếu cần giữ hiệu lực chữ ký. Hãy dùng bản chưa ký rồi kiểm tra lại sau OCR.
-- Nếu thiếu LibreOffice, OCRmyPDF, Tesseract hoặc gói ngôn ngữ, giao diện sẽ báo lỗi theo loại tệp.
+- Nếu thiếu LibreOffice khi lô có DOCX/XLSX/PPTX, hoặc thiếu OCRmyPDF/Tesseract/gói ngôn ngữ khi lô có PDF/ảnh scan, giao diện sẽ báo theo loại tệp.
 
 Hướng dẫn thao tác và xác nhận bằng tay nằm trong [quickstart](specs/001-office-to-pdf-batch/quickstart.md).

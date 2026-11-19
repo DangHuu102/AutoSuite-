@@ -181,6 +181,6 @@ Nhân viên văn phòng muốn phân loại một lô tài liệu theo tiêu ch�
 
 ### Dependencies
 
-- Cần LibreOffice cục bộ để chuyển Office sang PDF; OCR PDF/ảnh cần OCRmyPDF, Tesseract và gói ngôn ngữ được cài cục bộ.
+- Cần LibreOffice cục bộ để chuyển Office sang PDF. Microsoft Office đã cài không được prototype tự điều khiển; lựa chọn tự động hóa COM bị loại vì có thể treo hoặc chờ hộp thoại trong tiến trình nền. OCR PDF/ảnh cần OCRmyPDF, Tesseract và gói ngôn ngữ được cài cục bộ; không cần LibreOffice nếu lô chỉ gồm scan.
 - Cần có một bộ tài liệu mẫu đại diện cho Word, Excel và PowerPoint, bao gồm thiết lập in, dấu tiếng Việt và các trường hợp lỗi.
 - Trước khi dùng tài liệu công việc thật, cần xác nhận chính sách xử lý dữ liệu và quyền sử dụng trên thiết bị của người dùng.

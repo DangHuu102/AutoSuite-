@@ -26,7 +26,7 @@ Project Type: Ứng dụng cục bộ có giao diện web chỉ truy cập qua l
 
 Performance Goals: Chuyển 20 tài liệu Office trong tối đa 5 phút trên máy tham chiếu; OCR scan đo riêng vì thời gian phụ thuộc số trang/độ phân giải. Đây là mục tiêu ban đầu cần đo trong prototype
 
-Constraints: Nhận .docx, .xlsx, .pptx, .pdf và .png/.jpg/.jpeg/.tif/.tiff/.bmp; không nhận tệp Office macro-enabled hoặc định dạng cũ; giới hạn 20 tệp và 500 MB mỗi lô; OCR chạy cục bộ; AI tùy chọn chỉ dùng model Ollama local; một ảnh tạo một PDF riêng; xem PDF trước khi lưu; cần LibreOffice và OCRmyPDF/Tesseract cùng gói ngôn ngữ; bố cục Office có thể khác Microsoft Office, độ chính xác OCR phụ thuộc chất lượng scan
+Constraints: Nhận .docx, .xlsx, .pptx, .pdf và .png/.jpg/.jpeg/.tif/.tiff/.bmp; không nhận tệp Office macro-enabled hoặc định dạng cũ; giới hạn 20 tệp và 500 MB mỗi lô; OCR chạy cục bộ; AI tùy chọn chỉ dùng model Ollama local; một ảnh tạo một PDF riêng; xem PDF trước khi lưu; LibreOffice chỉ cần cho lô Office, còn OCR PDF/ảnh cần OCRmyPDF/Tesseract cùng gói ngôn ngữ; bố cục Office có thể khác Microsoft Office, độ chính xác OCR phụ thuộc chất lượng scan
 
 Scale/Scope: Một người dùng và tối đa 20 tệp mỗi lô trong MVP; một PDF cho mỗi tệp nguồn hợp lệ; không xử lý đồng thời nhiều lô
 

@@ -1,0 +1,19 @@
+[server]
+address = "127.0.0.1"
+headless = true
+maxUploadSize = 100
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+serverAddress = "autosuite.localhost"
+gatherUsageStats = false
+
+[theme]
+base = "light"
+primaryColor = "#3159c9"
+backgroundColor = "#f3f6fb"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#17243b"
+font = "sans serif"

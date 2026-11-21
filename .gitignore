@@ -1,0 +1,10 @@
+.venv/
+.tools/
+.ollama-models/
+.tesseract/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+.streamlit/secrets.toml

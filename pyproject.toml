@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "officeflow"
+version = "0.2.0"
+description = "Chuyen tai lieu sang PDF theo lo, OCR va AI phan loai tuy chon."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "streamlit[pdf]>=1.55,<2",
+    "pypdf>=5,<7",
+    "Pillow>=10,<13",
+    "ocrmypdf>=17,<18",
+    "pypdfium2>=4",
+]
+
+[project.optional-dependencies]
+desktop = ["pywebview>=5,<7"]
+
+[project.scripts]
+officeflow = "officeflow.cli:main"
+officeflow-desktop = "officeflow.desktop:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

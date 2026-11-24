@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>AutoSuite — Chuyển đổi PDF, Word &amp; OCR tốc độ cao</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Crect width='36' height='36' rx='9' fill='%232563eb'/%3E%3Cpath d='M10 11h10l6 6v8a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V13a2 2 0 0 1 2-2z' fill='%23fff'/%3E%3Cpath d='M20 11v6h6' fill='%2393c5fd'/%3E%3Cpath d='M12 21h10M12 17h6' stroke='%232563eb' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/styles.css?v=3">
+</head>
+<body>
+  <div id="drag-overlay" class="drag-overlay" hidden aria-hidden="true">
+    <div class="drag-overlay-box">
+      <div class="drag-overlay-icon">⬇</div>
+      <div class="drag-overlay-title">Thả tệp vào đây để tự động nhận diện</div>
+      <div class="drag-overlay-sub">Hỗ trợ PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx) &amp; Ảnh Scan</div>
+    </div>
+  </div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="#upload" id="brand-home" class="brand" title="Quay về trang tải tệp">
+        <span class="brand-logo" aria-hidden="true">⚡</span>
+        <span class="brand-text">
+          <strong>AutoSuite</strong>
+          <span class="brand-tag">Nhanh · Nhẹ RAM · Giữ nguyên bảng biểu</span>
+        </span>
+      </a>
+
+      <div class="topbar-right">
+        <label class="autostart-toggle" title="Tự động bắt đầu chuyển đổi ngay khi bạn chọn hoặc thả tệp">
+          <input type="checkbox" id="chk-autostart">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-label">Tự chạy ngay</span>
+        </label>
+
+        <nav class="step-pills" aria-label="Tiến trình">
+          <span id="step-pill-1" class="step-pill active"><span class="step-num">1</span> Chọn tệp</span>
+          <span class="step-arrow" aria-hidden="true">›</span>
+          <span id="step-pill-2" class="step-pill"><span class="step-num">2</span> Xử lý</span>
+          <span class="step-arrow" aria-hidden="true">›</span>
+          <span id="step-pill-3" class="step-pill"><span class="step-num">3</span> Tải xuống</span>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main class="stage">
+    <!-- Tool Switcher Bar (Smart Auto-Routing + Direct Modes) -->
+    <section id="tool-bar-wrap" class="tool-bar-wrap" aria-label="Chế độ chuyển đổi">
+      <div class="tool-tabs" role="tablist">
+        <button type="button" role="tab" aria-selected="true" data-mode="auto" class="tool-tab active">
+          ✨ Tự động nhận diện
+        </button>
+        <button type="button" role="tab" aria-selected="false" data-mode="pdf2word" class="tool-tab">
+          📝 PDF → Word giữ bảng
+        </button>
+        <button type="button" role="tab" aria-selected="false" data-mode="office2pdf" class="tool-tab">
+          📄 Office → PDF
+        </button>
+        <button type="button" role="tab" aria-selected="false" data-mode="ocr2pdf" class="tool-tab">
+          🔍 Scan / Ảnh → PDF OCR
+        </button>
+        <button type="button" role="tab" aria-selected="false" data-mode="mergeimg" class="tool-tab">
+          🗂️ Ghép Ảnh → 1 PDF
+        </button>
+      </div>
+    </section>
+
+    <div id="global-toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <!-- VIEW 1: UPLOAD & SMART AUTO-ROUTING -->
+    <section id="view-upload" class="view-panel">
+      <div class="hero-compact">
+        <h1 id="hero-title">Chuyển đổi PDF &amp; Tài liệu thông minh</h1>
+        <p id="hero-subtitle">Thả bất kỳ tệp PDF, Word, Excel, PowerPoint hoặc Ảnh scan — hệ thống tự nhận diện công cụ phù hợp nhất và tải thẳng về trình duyệt của bạn.</p>
+      </div>
+
+      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Kéo thả tệp vào đây hoặc bấm để chọn tệp từ máy">
+        <input type="file" id="file-input" multiple accept=".pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.tif,.tiff,.bmp" hidden>
+        <div class="dropzone-art" aria-hidden="true">
+          <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+            <rect x="4" y="6" width="44" height="40" rx="12" fill="#EFF6FF" stroke="#93C5FD" stroke-width="2"/>
+            <path d="M26 33V17M26 17L19.5 23.5M26 17L32.5 23.5" stroke="#2563EB" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M16 37H36" stroke="#60A5FA" stroke-width="2.4" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="dropzone-headline" id="dropzone-headline">Kéo &amp; thả tệp vào đây hoặc bấm để chọn tệp</div>
+        <div class="dropzone-hint" id="dropzone-hint">Hỗ trợ .pdf, .docx, .xlsx, .pptx, .png, .jpg, .tif, .bmp · Hoặc nhấn <kbd>Ctrl</kbd>+<kbd>V</kbd> để dán ảnh chụp màn hình</div>
+        <button type="button" id="btn-pick-files" class="btn btn-cobalt btn-pick">
+          📂 Chọn tệp từ máy tính
+        </button>
+      </div>
+
+      <!-- Staged Files & Smart Route Inspector -->
+      <div id="staged-panel" class="card staged-panel" hidden>
+        <div class="staged-header">
+          <div class="staged-summary">
+            <span id="staged-total-size" class="total-size-badge">Tổng dung lượng: 0 KB</span>
+            <span id="auto-route-chip" class="route-chip"></span>
+          </div>
+          <div class="staged-header-actions">
+            <button type="button" id="btn-add-more" class="btn-link">+ Thêm tệp</button>
+            <button type="button" id="btn-clear-files" class="btn-link danger">Xóa hết</button>
+          </div>
+        </div>
+
+        <div id="validation-banner" class="alert alert-error" hidden></div>
+        <div id="smart-switch-banner" class="smart-banner" hidden></div>
+
+        <!-- Contextual Smart Route Pills (0ms Auto-Routing Controls) -->
+        <div id="route-options-bar" class="route-options-bar" hidden>
+          <!-- PDF Route Toggle: PDF -> Word vs PDF -> OCR PDF -->
+          <div id="opt-pdf-route" class="pill-group" hidden>
+            <span class="pill-group-label">Đầu ra cho PDF:</span>
+            <button type="button" data-pdf-route="docx" class="choice-pill active">📝 Sang Word (.docx) giữ bảng</button>
+            <button type="button" data-pdf-route="pdf" class="choice-pill">🔍 OCR làm nét chữ PDF Scan</button>
+          </div>
+
+          <!-- Multi-image Toggle: Merge vs Separate -->
+          <div id="opt-image-merge" class="pill-group" hidden>
+            <span class="pill-group-label">Xử lý nhiều ảnh:</span>
+            <button type="button" data-img-merge="true" class="choice-pill active">🗂️ Ghép thành 1 PDF nhiều trang</button>
+            <button type="button" data-img-merge="false" class="choice-pill">📄 Tách từng PDF riêng</button>
+          </div>
+
+          <!-- Merged PDF Filename Input -->
+          <div id="opt-merged-name-wrap" class="inline-field" hidden>
+            <label for="input-merged-name">Tên file ghép:</label>
+            <input type="text" id="input-merged-name" value="Anh-gop.pdf" maxlength="160" placeholder="Anh-gop.pdf">
+          </div>
+
+          <!-- OCR Language Selector -->
+          <div id="opt-ocr-lang" class="inline-field" hidden>
+            <label for="select-ocr-lang">Ngôn ngữ OCR:</label>
+            <select id="select-ocr-lang">
+              <option value="vie" selected>Tiếng Việt</option>
+              <option value="vie+eng">Tiếng Việt + Anh</option>
+              <option value="eng">Tiếng Anh</option>
+            </select>
+          </div>
+        </div>
+
+        <ul id="staged-file-list" class="file-list" aria-label="Danh sách tệp đã chọn"></ul>
+
+        <div class="cta-row">
+          <button type="button" id="btn-start-convert" class="btn btn-emerald btn-hero">
+            🚀 Bắt đầu chuyển đổi ngay
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: REAL-TIME PROGRESS CARD -->
+    <section id="view-converting" class="view-panel" hidden aria-live="polite">
+      <div class="card progress-card">
+        <div class="progress-badge-row">
+          <span class="pulse-dot" aria-hidden="true"></span>
+          <span id="progress-phase-label" class="progress-phase">Đang tải tệp lên và xử lý…</span>
+          <span id="progress-percent" class="progress-pct">0%</span>
+        </div>
+
+        <h2 id="progress-headline" class="progress-title">Đang chuẩn bị chuyển đổi…</h2>
+        <p id="progress-subtext" class="progress-sub">Vui lòng giữ tab này trong giây lát — hệ thống tự chuyển sang màn hình tải xuống ngay khi xong.</p>
+
+        <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-bar-outer">
+          <div id="progress-bar-fill" class="progress-fill"></div>
+        </div>
+
+        <div class="progress-footer">
+          <span id="progress-counter" class="muted-meta">Đang khởi tạo…</span>
+          <button type="button" id="btn-cancel-job" class="btn btn-ghost-danger">Hủy tác vụ</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: MP4/MP3-STYLE HERO DOWNLOAD & OPTIONAL DRAWERS -->
+    <section id="view-download" class="view-panel" hidden>
+      <div id="download-issues-box" class="issues-stack" hidden></div>
+
+      <!-- Empty / All-Failed State -->
+      <div id="download-empty-card" class="card empty-result-card" hidden>
+        <h2>Không tạo được tệp đầu ra hợp lệ</h2>
+        <p>Vui lòng kiểm tra thông báo lỗi phía trên và thử lại với tệp khác.</p>
+        <button type="button" id="btn-retry-from-empty" class="btn btn-cobalt">↻ Quay lại chọn tệp khác</button>
+      </div>
+
+      <!-- Single-File Hero Download Card (MP4 / Y2Mate / iLovePDF Style) -->
+      <div id="single-download-card" class="card hero-download-card" hidden>
+        <div class="ready-banner">
+          <span class="ready-pill">✓ Sẵn sàng tải xuống</span>
+          <span id="single-elapsed" class="elapsed-meta"></span>
+        </div>
+
+        <div class="file-identity">
+          <div id="single-ext-badge" class="ext-icon-badge docx">DOCX</div>
+          <div class="file-edit-wrap">
+            <label for="single-name-stem" class="sr-only">Đổi tên tệp trước khi tải</label>
+            <div class="stem-input-group">
+              <input type="text" id="single-name-stem" class="name-stem-input" maxlength="160" spellcheck="false" autocomplete="off">
+              <span id="single-ext-locked" class="ext-locked-pill">.docx</span>
+            </div>
+            <div id="single-meta-chips" class="meta-chips"></div>
+          </div>
+        </div>
+
+        <div class="download-actions-row">
+          <a id="btn-single-download" href="#" download class="btn btn-emerald btn-download-main">
+            ⬇ Tải xuống máy
+          </a>
+          <button type="button" id="btn-single-save-as" class="btn btn-outline-cobalt btn-save-picker">
+            📁 Chọn vị trí lưu (Save As…)
+          </button>
+        </div>
+        <div id="single-save-feedback" class="save-feedback" hidden></div>
+      </div>
+
+      <!-- Multi-File Batch Download Card -->
+      <div id="batch-download-card" class="card hero-download-card" hidden>
+        <div class="ready-banner">
+          <span class="ready-pill">✓ Đã chuyển đổi xong lô tài liệu</span>
+          <span id="batch-elapsed" class="elapsed-meta"></span>
+        </div>
+
+        <div class="batch-hero-top">
+          <div>
+            <h2 id="batch-summary-title" class="batch-title">Đã sẵn sàng tải xuống</h2>
+            <p id="batch-summary-sub" class="batch-sub">Tải toàn bộ dưới dạng tệp nén .ZIP hoặc lưu từng tệp bên dưới.</p>
+          </div>
+          <div class="batch-actions-row">
+            <a id="btn-batch-zip" href="#" download class="btn btn-emerald btn-download-main">
+              ⬇ Tải tất cả (.ZIP)
+            </a>
+            <button type="button" id="btn-batch-folder-picker" class="btn btn-outline-cobalt btn-save-picker">
+              📁 Chọn thư mục lưu tất cả…
+            </button>
+          </div>
+        </div>
+        <div id="batch-save-feedback" class="save-feedback" hidden></div>
+
+        <ul id="batch-output-list" class="batch-output-list" aria-label="Danh sách tệp kết quả"></ul>
+      </div>
+
+      <!-- Optional Lazy Drawers: Preview & AI Classification -->
+      <div id="optional-drawers" class="drawers-stack" hidden>
+        <details id="drawer-preview" class="drawer">
+          <summary class="drawer-summary">
+            <span>👁 Xem trước bảng biểu &amp; nội dung tệp</span>
+            <span class="drawer-chevron" aria-hidden="true">▾</span>
+          </summary>
+          <div class="drawer-body">
+            <div id="preview-selector-row" class="preview-selector-row" hidden>
+              <label for="select-preview-output">Chọn tệp xem trước:</label>
+              <select id="select-preview-output"></select>
+            </div>
+            <div id="preview-container" class="preview-container">
+              <div class="muted-meta">Đang tải bản xem trước…</div>
+            </div>
+          </div>
+        </details>
+
+        <details id="drawer-ai" class="drawer" hidden>
+          <summary class="drawer-summary">
+            <span>✨ AI Phân loại &amp; Gợi ý đặt tên PDF (Ollama / OpenAI)</span>
+            <span class="drawer-chevron" aria-hidden="true">▾</span>
+          </summary>
+          <div class="drawer-body">
+            <p class="drawer-note">Chỉ đọc tối đa 8 trang đầu (12.000 ký tự). AI chỉ đề xuất — bạn toàn quyền giữ hoặc sửa tên trước khi tải.</p>
+            <div class="ai-form-grid">
+              <div class="ai-field">
+                <label for="ai-provider">Nguồn AI</label>
+                <select id="ai-provider">
+                  <option value="ollama" selected>Ollama chạy cục bộ (Riêng tư 100%)</option>
+                  <option value="openai">OpenAI API (Cloud)</option>
+                </select>
+              </div>
+              <div class="ai-field" id="ai-ollama-model-wrap">
+                <label for="ai-ollama-model">Model Ollama</label>
+                <div class="inline-row">
+                  <select id="ai-ollama-model"><option value="">Đang kiểm tra…</option></select>
+                  <button type="button" id="btn-refresh-ollama" class="btn-mini">Làm mới</button>
+                </div>
+              </div>
+              <div class="ai-field" id="ai-openai-model-wrap" hidden>
+                <label for="ai-openai-model">Model OpenAI</label>
+                <input type="text" id="ai-openai-model" value="gpt-4o-mini">
+              </div>
+            </div>
+
+            <div id="ai-cloud-consent-wrap" class="consent-row" hidden>
+              <label>
+                <input type="checkbox" id="ai-cloud-consent">
+                Tôi đồng ý gửi tối đa 8 trang đầu (≤ 12.000 ký tự) tới OpenAI API.
+              </label>
+            </div>
+
+            <div class="ai-field" style="margin-top:.65rem;">
+              <label for="ai-filter-prompt">Tiêu chí phân loại &amp; đặt tên</label>
+              <input type="text" id="ai-filter-prompt" value="Giữ giấy tờ hành chính, hóa đơn và hồ sơ quan trọng; gợi ý tên tệp gọn rõ.">
+            </div>
+
+            <div class="ai-action-bar">
+              <button type="button" id="btn-run-ai" class="btn btn-cobalt">✨ Chạy AI gợi ý tên tệp</button>
+              <button type="button" id="btn-apply-ai-names" class="btn btn-outline-cobalt" hidden>✓ Áp dụng tất cả tên gợi ý</button>
+            </div>
+            <div id="ai-results-list" class="ai-results-list"></div>
+          </div>
+        </details>
+      </div>
+
+      <!-- Reset & Audit Report Footer -->
+      <div id="download-footer-bar" class="download-footer-bar" hidden>
+        <button type="button" id="btn-convert-another" class="btn btn-reset">
+          ↻ Chuyển đổi tệp khác
+        </button>
+        <div class="report-links">
+          <a id="link-report-csv" href="#" download class="muted-link">Tải báo cáo CSV</a>
+          <span class="dot-sep">·</span>
+          <a id="link-report-json" href="#" download class="muted-link">JSON</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js?v=3" defer></script>
+</body>
+</html>

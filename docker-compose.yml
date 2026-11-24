@@ -1,0 +1,12 @@
+services:
+  autosuite:
+    build: .
+    container_name: autosuite-web
+    restart: unless-stopped
+    ports:
+      - "80:8501"
+    environment:
+      - OFFICEFLOW_ALLOWED_HOSTS=*
+      - OFFICEFLOW_AI_TIMEOUT_SECONDS=90
+      # Nếu muốn bật OpenAI API trên server, bỏ comment dòng dưới:
+      # - OPENAI_API_KEY=${OPENAI_API_KEY}

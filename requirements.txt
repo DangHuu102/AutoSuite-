@@ -1,0 +1,8 @@
+starlette>=1.0,<2
+uvicorn>=0.40,<1
+python-multipart>=0.0.20,<1
+pypdf>=5,<7
+Pillow>=10,<13
+ocrmypdf>=17,<18
+pypdfium2>=4
+-e .

@@ -36,11 +36,13 @@ from .staging import (
     create_batch_staging,
     source_output_dir,
     store_source_bytes,
+    store_source_stream,
 )
 from .validation import (
     IMAGE_EXTENSIONS,
     MAX_BATCH_BYTES,
     MAX_FILES_PER_BATCH,
+    MAX_SINGLE_FILE_BYTES,
     OFFICE_EXTENSIONS,
     apply_preflight,
 )
@@ -57,20 +59,45 @@ def _upload_bytes(upload: Any) -> bytes:
 
 
 def _upload_name(upload: Any) -> str:
-    value = str(getattr(upload, "name", "") or "tai-lieu")
-    return value.replace("\\", "/").split("/")[-1]
+    raw = getattr(upload, "filename", None) or getattr(upload, "name", "") or "tai-lieu"
+    return str(raw).replace("\\", "/").split("/")[-1]
 
 
-def _upload_size(upload: Any) -> int:
+def _upload_size_hint(upload: Any) -> int | None:
     size = getattr(upload, "size", None)
     if isinstance(size, int) and size >= 0:
         return size
     getbuffer = getattr(upload, "getbuffer", None)
     if callable(getbuffer):
-        return getbuffer().nbytes
+        return int(getbuffer().nbytes)
+    return None
+
+
+def _stage_upload(
+    staging_dir: Path,
+    source_id: str,
+    original_name: str,
+    upload: Any,
+    *,
+    max_bytes: int,
+) -> tuple[Path, int]:
+    """Stream or write an upload to staging without buffering large files in RAM."""
+    local_path = getattr(upload, "path", None)
+    if isinstance(local_path, Path) and local_path.is_file():
+        with local_path.open("rb") as handle:
+            return store_source_stream(staging_dir, source_id, original_name, handle, max_bytes)
+    file_obj = getattr(upload, "file", None)
+    if file_obj is not None and hasattr(file_obj, "read"):
+        return store_source_stream(staging_dir, source_id, original_name, file_obj, max_bytes)
+    if hasattr(upload, "read"):
+        return store_source_stream(staging_dir, source_id, original_name, upload, max_bytes)
     if hasattr(upload, "getvalue"):
-        return len(upload.getvalue())
-    raise ValueError("Không xác định được dung lượng của một tệp đã chọn.")
+        data = bytes(upload.getvalue())
+        if len(data) > max_bytes:
+            raise OverflowError(f"Tệp '{original_name}' vượt quá giới hạn dung lượng cho phép.")
+        target = store_source_bytes(staging_dir, source_id, original_name, data)
+        return target, len(data)
+    raise TypeError("Không đọc được tệp đã chọn.")
 
 
 def create_batch_job(
@@ -94,8 +121,11 @@ def create_batch_job(
     normalized_merged_name = (
         normalize_pdf_name(merged_pdf_name) if merge_images and target_format == "pdf" else "Anh-gop.pdf"
     )
-    total_bytes = sum(_upload_size(upload) for upload in uploads)
-    if total_bytes > MAX_BATCH_BYTES:
+    known_hints = [_upload_size_hint(upload) for upload in uploads]
+    for upload, hint in zip(uploads, known_hints, strict=True):
+        if hint is not None and hint > MAX_SINGLE_FILE_BYTES:
+            raise ValueError(f"Tệp '{_upload_name(upload)}' vượt quá giới hạn 100 MB mỗi tệp.")
+    if sum(h for h in known_hints if h is not None) > MAX_BATCH_BYTES:
         raise ValueError("Tổng dung lượng mỗi lô tối đa 500 MB. Hãy chia thành nhiều lô nhỏ hơn.")
 
     if destination is not None:
@@ -116,6 +146,7 @@ def create_batch_job(
     job.staging_dir = create_batch_staging(job.batch_id)
     job.state = BatchState.PREFLIGHT
 
+    running_total_bytes = 0
     try:
         for upload in uploads:
             original_name = _upload_name(upload)
@@ -127,13 +158,23 @@ def create_batch_job(
                 extension=extension,
                 byte_size=0,
             )
-            try:
-                data = _upload_bytes(upload)
-                source.byte_size = len(data)
-                source.source_location = store_source_bytes(
-                    job.staging_dir, source_id, original_name, data
+            remaining_batch = MAX_BATCH_BYTES - running_total_bytes
+            if remaining_batch <= 0:
+                raise ValueError(
+                    "Tổng dung lượng mỗi lô tối đa 500 MB. Hãy chia thành nhiều lô nhỏ hơn."
                 )
-                del data
+            max_allowed = min(MAX_SINGLE_FILE_BYTES, remaining_batch)
+            try:
+                staged_path, written_bytes = _stage_upload(
+                    job.staging_dir,
+                    source_id,
+                    original_name,
+                    upload,
+                    max_bytes=max_allowed,
+                )
+                running_total_bytes += written_bytes
+                source.byte_size = written_bytes
+                source.source_location = staged_path
                 apply_preflight(source)
                 if target_format == "docx" and source.status is SourceStatus.VALID and source.extension != ".pdf":
                     source.status = SourceStatus.SKIPPED
@@ -145,6 +186,14 @@ def create_batch_job(
                             source_id=source_id,
                         )
                     )
+            except OverflowError as exc:
+                if remaining_batch < MAX_SINGLE_FILE_BYTES:
+                    raise ValueError(
+                        "Tổng dung lượng mỗi lô tối đa 500 MB. Hãy chia thành nhiều lô nhỏ hơn."
+                    ) from exc
+                raise ValueError(
+                    f"Tệp '{original_name}' vượt quá giới hạn 100 MB mỗi tệp."
+                ) from exc
             except (OSError, TypeError, ValueError):
                 source.status = SourceStatus.FAILED
                 source.issues.append(

@@ -1,0 +1,4 @@
+libreoffice
+tesseract-ocr
+tesseract-ocr-vie
+tesseract-ocr-eng

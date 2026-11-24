@@ -8,6 +8,7 @@ import stat
 import tempfile
 import time
 from pathlib import Path
+from typing import BinaryIO
 from uuid import uuid4
 
 from .naming import normalize_docx_name, normalize_pdf_name, safe_source_filename
@@ -16,6 +17,7 @@ from .models import OutputPdf, OutputStatus
 STAGING_ROOT = Path(tempfile.gettempdir()) / "officeflow-staging"
 _BATCH_PREFIX = "batch-"
 _ORPHAN_CLEANUP_DONE = False
+STREAM_CHUNK_BYTES = 65_536
 
 
 def _remove_readonly(func, path, _exc) -> None:
@@ -92,6 +94,50 @@ def store_source_bytes(staging_dir: Path, source_id: str, original_name: str, da
         destination.flush()
         os.fsync(destination.fileno())
     return target
+
+
+def store_source_stream(
+    staging_dir: Path,
+    source_id: str,
+    original_name: str,
+    file_obj: BinaryIO,
+    max_bytes: int | None = None,
+    *,
+    chunk_size: int = STREAM_CHUNK_BYTES,
+) -> tuple[Path, int]:
+    """Stream an upload in 64 KB chunks straight to isolated staging with size enforcement."""
+    if staging_dir.is_symlink():
+        raise RuntimeError("Thư mục staging không hợp lệ (symlink).")
+    safe_name = safe_source_filename(original_name, max_stem_length=48)
+    target = staging_dir / "input" / f"{source_id}-{safe_name}"
+    written = 0
+    if hasattr(file_obj, "seekable") and callable(file_obj.seekable):
+        try:
+            if file_obj.seekable():
+                file_obj.seek(0)
+        except OSError:
+            pass
+    try:
+        with target.open("xb") as destination:
+            while True:
+                chunk = file_obj.read(chunk_size)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if max_bytes is not None and written > max_bytes:
+                    raise OverflowError(
+                        f"Tệp '{original_name}' vượt quá giới hạn dung lượng cho phép."
+                    )
+                destination.write(chunk)
+            destination.flush()
+            os.fsync(destination.fileno())
+        return target, written
+    except BaseException:
+        try:
+            target.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
 
 
 def source_output_dir(staging_dir: Path, source_id: str) -> Path:

@@ -4,12 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "officeflow"
-version = "0.2.0"
-description = "Chuyen tai lieu sang PDF theo lo, OCR va AI phan loai tuy chon."
+version = "0.3.0"
+description = "AutoSuite: Chuyen doi PDF sang Word giu bang bieu, Office/Scan sang PDF OCR va AI phan loai nhe RAM."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "streamlit[pdf]>=1.55,<2",
+    "starlette>=1.0,<2",
+    "uvicorn>=0.40,<1",
+    "python-multipart>=0.0.20,<1",
     "pypdf>=5,<7",
     "Pillow>=10,<13",
     "ocrmypdf>=17,<18",
@@ -25,6 +27,9 @@ officeflow-desktop = "officeflow.desktop:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+officeflow = ["static/*"]
 
 [tool.ruff]
 line-length = 100

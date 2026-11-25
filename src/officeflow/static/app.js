@@ -28,6 +28,8 @@
     previewLoadedFor: "",
     aiModelsLoaded: false,
     patchDebounce: null,
+    user: null,
+    authChecked: false,
   };
 
   const $ = (id) => document.getElementById(id);
@@ -43,6 +45,56 @@
     viewUpload: $("view-upload"),
     viewConverting: $("view-converting"),
     viewDownload: $("view-download"),
+    viewAuth: $("view-auth"),
+    viewAccount: $("view-account"),
+    viewAdmin: $("view-admin"),
+    authGuestControls: $("auth-guest-controls"),
+    authUserControls: $("auth-user-controls"),
+    navUserAvatar: $("nav-user-avatar"),
+    navUserName: $("nav-user-name"),
+    navUserRole: $("nav-user-role"),
+    navBtnAdmin: $("nav-btn-admin"),
+    navBtnLogout: $("nav-btn-logout"),
+    guestHistoryNudge: $("guest-history-nudge"),
+    tabAuthLogin: $("tab-auth-login"),
+    tabAuthSignup: $("tab-auth-signup"),
+    authErrorBox: $("auth-error-box"),
+    formLogin: $("form-login"),
+    loginIdentifier: $("login-identifier"),
+    loginPassword: $("login-password"),
+    loginRemember: $("login-remember"),
+    btnSubmitLogin: $("btn-submit-login"),
+    errLoginIdentifier: $("err-login-identifier"),
+    errLoginPassword: $("err-login-password"),
+    formSignup: $("form-signup"),
+    signupUsername: $("signup-username"),
+    signupEmail: $("signup-email"),
+    signupPassword: $("signup-password"),
+    signupConfirm: $("signup-confirm"),
+    btnSubmitSignup: $("btn-submit-signup"),
+    errSignupUsername: $("err-signup-username"),
+    errSignupEmail: $("err-signup-email"),
+    errSignupPassword: $("err-signup-password"),
+    errSignupConfirm: $("err-signup-confirm"),
+    accountAvatarLg: $("account-avatar-lg"),
+    accountUsername: $("account-username"),
+    accountRoleBadge: $("account-role-badge"),
+    accountEmail: $("account-email"),
+    accountCreated: $("account-created"),
+    btnAccountLogout: $("btn-account-logout"),
+    btnRefreshHistory: $("btn-refresh-history"),
+    historyEmpty: $("history-empty"),
+    historyList: $("history-list"),
+    formChangePw: $("form-change-pw"),
+    pwCurrent: $("pw-current"),
+    pwNew: $("pw-new"),
+    pwConfirm: $("pw-confirm"),
+    pwChangeMsg: $("pw-change-msg"),
+    btnSavePw: $("btn-save-pw"),
+    adminForbiddenCard: $("admin-forbidden-card"),
+    adminPanelCard: $("admin-panel-card"),
+    btnRefreshAdmin: $("btn-refresh-admin"),
+    adminUsersTbody: $("admin-users-tbody"),
     heroTitle: $("hero-title"),
     heroSub: $("hero-subtitle"),
     dropzone: $("dropzone"),
@@ -173,6 +225,9 @@
     els.viewUpload.hidden = viewName !== "upload";
     els.viewConverting.hidden = viewName !== "converting";
     els.viewDownload.hidden = viewName !== "download";
+    els.viewAuth.hidden = viewName !== "login" && viewName !== "signup";
+    els.viewAccount.hidden = viewName !== "account";
+    els.viewAdmin.hidden = viewName !== "admin";
     els.toolBarWrap.hidden = viewName !== "upload";
 
     if (viewName === "upload") {
@@ -191,6 +246,19 @@
       const hashTarget = jobId ? `#download/${jobId}` : "#download";
       if (pushHash && location.hash !== hashTarget) {
         history.replaceState({ view: "download", jobId }, "", hashTarget);
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (viewName === "login" || viewName === "signup") {
+      switchAuthTab(viewName);
+      const target = `#${viewName}`;
+      if (pushHash && location.hash !== target) {
+        history.pushState({ view: viewName }, "", target);
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (viewName === "account" || viewName === "admin") {
+      const target = `#${viewName}`;
+      if (pushHash && location.hash !== target) {
+        history.pushState({ view: viewName }, "", target);
       }
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -876,6 +944,7 @@
     els.optionalDrawers.hidden = false;
     els.footerBar.hidden = false;
     els.drawerAi.hidden = isDocx;
+    els.guestHistoryNudge.hidden = Boolean(state.user);
 
     els.linkReportCsv.href = `/api/jobs/${job.job_id}/report.csv`;
     els.linkReportJson.href = `/api/jobs/${job.job_id}/report.json`;
@@ -1409,10 +1478,403 @@
     } catch (_) {}
   });
 
+  // -------------------------------------------------------------------------
+  // Authentication, Account History & Admin RBAC Logic
+  // -------------------------------------------------------------------------
+
+  function clearAuthErrors() {
+    els.authErrorBox.hidden = true;
+    els.authErrorBox.textContent = "";
+    [
+      els.errLoginIdentifier,
+      els.errLoginPassword,
+      els.errSignupUsername,
+      els.errSignupEmail,
+      els.errSignupPassword,
+      els.errSignupConfirm,
+    ].forEach((el) => {
+      if (el) el.textContent = "";
+    });
+  }
+
+  function switchAuthTab(tabName) {
+    clearAuthErrors();
+    const isSignup = tabName === "signup";
+    els.tabAuthLogin.classList.toggle("active", !isSignup);
+    els.tabAuthSignup.classList.toggle("active", isSignup);
+    els.formLogin.hidden = isSignup;
+    els.formSignup.hidden = !isSignup;
+  }
+
+  function formatDateVi(isoStr) {
+    if (!isoStr) return "";
+    try {
+      const d = new Date(isoStr);
+      return d.toLocaleString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (_) {
+      return isoStr;
+    }
+  }
+
+  function renderAuthHeader() {
+    const u = state.user;
+    els.authGuestControls.hidden = Boolean(u);
+    els.authUserControls.hidden = !u;
+    if (els.guestHistoryNudge && !els.viewDownload.hidden && state.currentJob && (state.currentJob.outputs || []).length > 0) {
+      els.guestHistoryNudge.hidden = Boolean(u);
+    }
+    if (!u) return;
+
+    const initial = (u.username || u.email || "U").trim().charAt(0).toUpperCase();
+    els.navUserAvatar.textContent = initial;
+    els.navUserName.textContent = u.username;
+    els.navUserRole.textContent = u.role;
+    els.navUserRole.className = u.role === "Admin" ? "role-badge admin" : "role-badge";
+    els.navBtnAdmin.hidden = u.role !== "Admin";
+  }
+
+  async function refreshCurrentUser() {
+    try {
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        state.user = data.authenticated ? data.user : null;
+      } else {
+        state.user = null;
+      }
+    } catch (_) {
+      state.user = null;
+    }
+    state.authChecked = true;
+    renderAuthHeader();
+    return state.user;
+  }
+
+  async function loadAccountScreen() {
+    if (!state.authChecked) await refreshCurrentUser();
+    if (!state.user) {
+      navigateView("login", true);
+      showToast("Vui lòng đăng nhập để xem hồ sơ và lịch sử chuyển đổi.", true);
+      return;
+    }
+    const u = state.user;
+    els.accountAvatarLg.textContent = (u.username || "U").trim().charAt(0).toUpperCase();
+    els.accountUsername.textContent = u.username;
+    els.accountRoleBadge.textContent = u.role;
+    els.accountRoleBadge.className = u.role === "Admin" ? "role-badge admin" : "role-badge";
+    els.accountEmail.textContent = u.email;
+    els.accountCreated.textContent = `Tham gia lúc: ${formatDateVi(u.created_at)}`;
+    els.pwChangeMsg.hidden = true;
+    navigateView("account", false);
+
+    try {
+      const res = await fetch("/api/account/history", { cache: "no-store" });
+      if (res.status === 401) {
+        state.user = null;
+        renderAuthHeader();
+        navigateView("login", true);
+        return;
+      }
+      const data = await res.json();
+      const items = data.items || [];
+      els.historyList.innerHTML = "";
+      els.historyEmpty.hidden = items.length > 0;
+      for (const item of items) {
+        const li = document.createElement("li");
+        li.className = "history-item";
+
+        const left = document.createElement("div");
+        left.className = "history-left";
+        const badge = document.createElement("span");
+        badge.className = `history-fmt ${item.target_format === "docx" ? "docx" : "pdf"}`;
+        badge.textContent = item.target_format === "docx" ? "DOCX" : "PDF";
+
+        const info = document.createElement("div");
+        info.style.minWidth = "0";
+        const nameDiv = document.createElement("div");
+        nameDiv.className = "history-names";
+        nameDiv.textContent = item.summary_names;
+        const subDiv = document.createElement("div");
+        subDiv.className = "history-sub";
+        subDiv.textContent = `${item.file_count} tệp · ${formatBytes(item.total_bytes || 0)} · ${formatDateVi(item.created_at)}`;
+        info.append(nameDiv, subDiv);
+        left.append(badge, info);
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "btn-mini";
+        delBtn.textContent = "Xóa";
+        delBtn.addEventListener("click", async () => {
+          await fetch(`/api/account/history/${item.id}`, { method: "DELETE" });
+          li.remove();
+          if (!els.historyList.children.length) els.historyEmpty.hidden = false;
+        });
+
+        li.append(left, delBtn);
+        els.historyList.appendChild(li);
+      }
+    } catch (_) {}
+  }
+
+  async function loadAdminScreen() {
+    if (!state.authChecked) await refreshCurrentUser();
+    if (!state.user) {
+      navigateView("login", true);
+      showToast("Vui lòng đăng nhập tài khoản Quản trị (Admin).", true);
+      return;
+    }
+    navigateView("admin", false);
+
+    try {
+      const res = await fetch("/api/admin/users", { cache: "no-store" });
+      if (res.status === 401) {
+        state.user = null;
+        renderAuthHeader();
+        navigateView("login", true);
+        return;
+      }
+      if (res.status === 403) {
+        els.adminForbiddenCard.hidden = false;
+        els.adminPanelCard.hidden = true;
+        return;
+      }
+      const data = await res.json();
+      els.adminForbiddenCard.hidden = true;
+      els.adminPanelCard.hidden = false;
+      els.adminUsersTbody.innerHTML = "";
+
+      for (const u of data.users || []) {
+        const tr = document.createElement("tr");
+        const cells = [
+          String(u.id),
+          u.username + (state.user && u.id === state.user.id ? " (Bạn)" : ""),
+          u.email,
+        ];
+        cells.forEach((txt) => {
+          const td = document.createElement("td");
+          td.textContent = txt;
+          tr.appendChild(td);
+        });
+
+        const tdRole = document.createElement("td");
+        const rb = document.createElement("span");
+        rb.className = u.role === "Admin" ? "role-badge admin" : "role-badge";
+        rb.textContent = u.role;
+        tdRole.appendChild(rb);
+        tr.appendChild(tdRole);
+
+        const tdDate = document.createElement("td");
+        tdDate.textContent = formatDateVi(u.created_at);
+        tr.appendChild(tdDate);
+
+        const tdAct = document.createElement("td");
+        tdAct.style.display = "flex";
+        tdAct.style.gap = "0.4rem";
+
+        const nextRole = u.role === "Admin" ? "User" : "Admin";
+        const roleBtn = document.createElement("button");
+        roleBtn.type = "button";
+        roleBtn.className = "btn-mini";
+        roleBtn.textContent = nextRole === "Admin" ? "Nâng Admin" : "Hạ User";
+        roleBtn.addEventListener("click", async () => {
+          const r = await fetch(`/api/admin/users/${u.id}/role`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: nextRole }),
+          });
+          const resp = await r.json();
+          if (!r.ok) showToast(resp.error || "Không đổi được quyền.", true);
+          else {
+            showToast(`Đã đổi quyền ${u.username} sang ${nextRole}.`);
+            await refreshCurrentUser();
+            loadAdminScreen();
+          }
+        });
+        tdAct.appendChild(roleBtn);
+
+        if (!state.user || u.id !== state.user.id) {
+          const rmBtn = document.createElement("button");
+          rmBtn.type = "button";
+          rmBtn.className = "btn-mini";
+          rmBtn.style.color = "var(--rose)";
+          rmBtn.textContent = "Xóa";
+          rmBtn.addEventListener("click", async () => {
+            const r = await fetch(`/api/admin/users/${u.id}`, { method: "DELETE" });
+            const resp = await r.json();
+            if (!r.ok) showToast(resp.error || "Không xóa được người dùng.", true);
+            else {
+              showToast(`Đã xóa tài khoản ${u.username}.`);
+              loadAdminScreen();
+            }
+          });
+          tdAct.appendChild(rmBtn);
+        }
+
+        tr.appendChild(tdAct);
+        els.adminUsersTbody.appendChild(tr);
+      }
+    } catch (_) {
+      showToast("Không tải được danh sách người dùng.", true);
+    }
+  }
+
+  async function performLogout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (_) {}
+    state.user = null;
+    renderAuthHeader();
+    showToast("Đã đăng xuất an toàn.");
+    navigateView("upload", true);
+  }
+
+  els.tabAuthLogin.addEventListener("click", () => navigateView("login", true));
+  els.tabAuthSignup.addEventListener("click", () => navigateView("signup", true));
+  els.navBtnLogout.addEventListener("click", performLogout);
+  els.btnAccountLogout.addEventListener("click", performLogout);
+  els.btnRefreshHistory.addEventListener("click", loadAccountScreen);
+  els.btnRefreshAdmin.addEventListener("click", loadAdminScreen);
+
+  document.querySelectorAll(".btn-pw-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = $(btn.dataset.pwTarget);
+      if (!target) return;
+      target.type = target.type === "password" ? "text" : "password";
+    });
+  });
+
+  els.formLogin.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    clearAuthErrors();
+    els.btnSubmitLogin.disabled = true;
+    els.btnSubmitLogin.textContent = "⏳ Đang đăng nhập…";
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identifier: els.loginIdentifier.value.trim(),
+          password: els.loginPassword.value,
+          remember_me: els.loginRemember.checked,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        els.authErrorBox.textContent = data.error || "Đăng nhập thất bại.";
+        els.authErrorBox.hidden = false;
+        if (data.field_errors) {
+          if (data.field_errors.identifier) els.errLoginIdentifier.textContent = data.field_errors.identifier;
+          if (data.field_errors.password) els.errLoginPassword.textContent = data.field_errors.password;
+        }
+      } else {
+        state.user = data.user;
+        renderAuthHeader();
+        els.formLogin.reset();
+        showToast(`Chào mừng ${data.user.username}!`);
+        navigateView("upload", true);
+      }
+    } catch (_) {
+      els.authErrorBox.textContent = "Không kết nối được máy chủ.";
+      els.authErrorBox.hidden = false;
+    } finally {
+      els.btnSubmitLogin.disabled = false;
+      els.btnSubmitLogin.textContent = "🔐 Đăng nhập";
+    }
+  });
+
+  els.formSignup.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    clearAuthErrors();
+    els.btnSubmitSignup.disabled = true;
+    els.btnSubmitSignup.textContent = "⏳ Đang tạo tài khoản…";
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: els.signupUsername.value.trim(),
+          email: els.signupEmail.value.trim(),
+          password: els.signupPassword.value,
+          confirm_password: els.signupConfirm.value,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        els.authErrorBox.textContent = data.error || "Đăng ký thất bại.";
+        els.authErrorBox.hidden = false;
+        if (data.field_errors) {
+          if (data.field_errors.username) els.errSignupUsername.textContent = data.field_errors.username;
+          if (data.field_errors.email) els.errSignupEmail.textContent = data.field_errors.email;
+          if (data.field_errors.password) els.errSignupPassword.textContent = data.field_errors.password;
+          if (data.field_errors.confirm_password) els.errSignupConfirm.textContent = data.field_errors.confirm_password;
+        }
+      } else {
+        state.user = data.user;
+        renderAuthHeader();
+        els.formSignup.reset();
+        showToast(`Đăng ký thành công! Vai trò: ${data.user.role}.`);
+        navigateView("upload", true);
+      }
+    } catch (_) {
+      els.authErrorBox.textContent = "Không kết nối được máy chủ.";
+      els.authErrorBox.hidden = false;
+    } finally {
+      els.btnSubmitSignup.disabled = false;
+      els.btnSubmitSignup.textContent = "✨ Đăng ký & Vào sử dụng ngay";
+    }
+  });
+
+  els.formChangePw.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    els.pwChangeMsg.hidden = true;
+    els.btnSavePw.disabled = true;
+    try {
+      const res = await fetch("/api/account/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          current_password: els.pwCurrent.value,
+          new_password: els.pwNew.value,
+          confirm_password: els.pwConfirm.value,
+        }),
+      });
+      const data = await res.json();
+      els.pwChangeMsg.hidden = false;
+      if (!res.ok) {
+        els.pwChangeMsg.className = "alert alert-error";
+        els.pwChangeMsg.textContent = data.error || "Đổi mật khẩu thất bại.";
+      } else {
+        els.pwChangeMsg.className = "alert alert-success";
+        els.pwChangeMsg.textContent = data.message || "Đã cập nhật mật khẩu.";
+        els.formChangePw.reset();
+      }
+    } catch (_) {
+      els.pwChangeMsg.hidden = false;
+      els.pwChangeMsg.className = "alert alert-error";
+      els.pwChangeMsg.textContent = "Lỗi kết nối máy chủ.";
+    } finally {
+      els.btnSavePw.disabled = false;
+    }
+  });
+
   // Browser History Back / Forward Support
   async function syncFromLocationHash() {
     const h = location.hash || "";
-    if (h.startsWith("#download/")) {
+    if (h === "#login") {
+      navigateView("login", false);
+    } else if (h === "#signup") {
+      navigateView("signup", false);
+    } else if (h === "#account") {
+      await loadAccountScreen();
+    } else if (h === "#admin") {
+      await loadAdminScreen();
+    } else if (h.startsWith("#download/")) {
       const jobId = h.slice("#download/".length).trim();
       if (state.currentJob && state.currentJob.job_id === jobId) {
         renderDownloadScreen(state.currentJob);
@@ -1434,5 +1896,5 @@
   }
 
   window.addEventListener("hashchange", syncFromLocationHash);
-  syncFromLocationHash();
+  refreshCurrentUser().then(() => syncFromLocationHash());
 })();

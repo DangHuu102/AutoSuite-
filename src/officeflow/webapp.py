@@ -180,11 +180,77 @@ class LocalOriginMiddleware(BaseHTTPMiddleware):
         return response
 
 
+_auth_service: Any = None
+_auth_service_lock = threading.Lock()
+
+
+def _get_auth_service():
+    global _auth_service
+    if _auth_service is None:
+        with _auth_service_lock:
+            if _auth_service is None:
+                from .auth import AuthService
+
+                _auth_service = AuthService()
+    return _auth_service
+
+
+def _is_https_request(request: Request) -> bool:
+    proto = request.headers.get("x-forwarded-proto", "").strip().lower()
+    return request.url.scheme == "https" or proto == "https"
+
+
+def _set_auth_cookie(response: Response, request: Request, token: str, max_age: int) -> None:
+    from .auth import COOKIE_NAME
+
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        max_age=max_age,
+        path="/",
+        httponly=True,
+        samesite="lax",
+        secure=_is_https_request(request),
+    )
+
+
+def _clear_auth_cookie(response: Response, request: Request) -> None:
+    from .auth import COOKIE_NAME
+
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        path="/",
+        httponly=True,
+        samesite="lax",
+        secure=_is_https_request(request),
+    )
+
+
+class AuthCookieMiddleware(BaseHTTPMiddleware):
+    """Cookie-based Authentication & Sliding Expiration middleware."""
+
+    async def dispatch(self, request: Request, call_next):
+        request.state.user = None
+        refreshed: tuple[str, int] | None = None
+        cookie_val = request.cookies.get("autosuite_session")
+        if cookie_val:
+            auth_svc = _get_auth_service()
+            user, refreshed = await run_in_threadpool(auth_svc.authenticate_cookie, cookie_val)
+            request.state.user = user
+
+        response = await call_next(request)
+        if refreshed is not None and "set-cookie" not in {k.lower() for k in response.headers.keys()}:
+            token, max_age = refreshed
+            _set_auth_cookie(response, request, token, max_age)
+        return response
+
+
 @dataclass(slots=True)
 class JobRecord:
     job: Any  # officeflow.models.BatchJob
     created_mono: float
     last_accessed: float
+    user_id: int | None = None
     started_mono: float = 0.0
     finished_mono: float = 0.0
     status: str = "queued"  # queued | converting | review | failed | cancelled
@@ -592,6 +658,28 @@ def _run_conversion_worker(record: JobRecord) -> None:
                 record.finished_mono = time.monotonic()
                 record.last_accessed = record.finished_mono
                 record.version += 1
+
+        # Persist personal conversion history for signed-in users
+        if not record.cancelled and record.user_id is not None and job.outputs:
+            try:
+                names_preview = ", ".join(o.final_name for o in job.outputs[:3])
+                if len(job.outputs) > 3:
+                    names_preview += f" (+{len(job.outputs) - 3})"
+                total_out_bytes = sum(
+                    sp.stat().st_size
+                    for o in job.outputs
+                    if (sp := _safe_staged_output_path(job, o)) is not None
+                )
+                _get_auth_service().repo.add_history(
+                    user_id=record.user_id,
+                    job_id=job.batch_id,
+                    target_format=job.target_format,
+                    file_count=len(job.outputs),
+                    summary_names=names_preview or "tai-lieu",
+                    total_bytes=total_out_bytes,
+                )
+            except Exception:
+                pass
     except Exception as exc:
         with record.lock:
             if not record.cancelled:
@@ -642,6 +730,13 @@ async def api_capabilities(_request: Request) -> Response:
 
 
 async def api_create_job(request: Request) -> Response:
+    if os.environ.get("OFFICEFLOW_REQUIRE_AUTH", "").strip() in {"1", "true", "yes"}:
+        if getattr(request.state, "user", None) is None:
+            return JSONResponse(
+                {"error": "Vui lòng đăng nhập để sử dụng chức năng chuyển đổi."},
+                status_code=401,
+            )
+
     content_length = request.headers.get("content-length")
     if content_length:
         try:
@@ -710,10 +805,12 @@ async def api_create_job(request: Request) -> Response:
         )
 
     now = time.monotonic()
+    current_user = getattr(request.state, "user", None)
     record = JobRecord(
         job=job,
         created_mono=now,
         last_accessed=now,
+        user_id=current_user.id if current_user is not None else None,
         status="queued",
     )
     if not _store.put(record):
@@ -1177,11 +1274,232 @@ async def api_delete_job(request: Request) -> Response:
     return JSONResponse({"ok": True, "removed": bool(removed)}, headers={"Cache-Control": "no-store"})
 
 
+# ---------------------------------------------------------------------------
+# Authentication, Account & Role-Based Authorization (RBAC) Controllers
+# ---------------------------------------------------------------------------
+
+
+def _require_auth(request: Request) -> tuple[Any, Response | None]:
+    user = getattr(request.state, "user", None)
+    if user is None:
+        return None, JSONResponse(
+            {"error": "Vui lòng đăng nhập để truy cập chức năng này."}, status_code=401
+        )
+    return user, None
+
+
+def _require_role(request: Request, required_role: str) -> tuple[Any, Response | None]:
+    user, err = _require_auth(request)
+    if err is not None:
+        return None, err
+    if user.role != required_role:
+        return None, JSONResponse(
+            {"error": "Bạn không có quyền truy cập khu vực Quản trị (403 Forbidden)."},
+            status_code=403,
+        )
+    return user, None
+
+
+async def api_auth_me(request: Request) -> Response:
+    user = getattr(request.state, "user", None)
+    return JSONResponse(
+        {
+            "authenticated": user is not None,
+            "user": user.to_dict() if user is not None else None,
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+async def api_auth_register(request: Request) -> Response:
+    try:
+        body = await request.json()
+        if not isinstance(body, dict):
+            raise ValueError("Invalid body")
+    except Exception:
+        return JSONResponse({"error": "Dữ liệu đăng ký không hợp lệ."}, status_code=400)
+
+    from .auth import RegisterInputModel, ValidationError
+
+    try:
+        dto = RegisterInputModel.from_dict(body)
+        auth_svc = _get_auth_service()
+        user_vm, token, ttl = await run_in_threadpool(auth_svc.register, dto)
+    except ValidationError as exc:
+        return JSONResponse(
+            {"error": str(exc), "field_errors": exc.field_errors}, status_code=400
+        )
+
+    resp = JSONResponse(
+        {"authenticated": True, "user": user_vm.to_dict()},
+        status_code=201,
+        headers={"Cache-Control": "no-store"},
+    )
+    _set_auth_cookie(resp, request, token, ttl)
+    return resp
+
+
+async def api_auth_login(request: Request) -> Response:
+    try:
+        body = await request.json()
+        if not isinstance(body, dict):
+            raise ValueError("Invalid body")
+    except Exception:
+        return JSONResponse({"error": "Dữ liệu đăng nhập không hợp lệ."}, status_code=400)
+
+    from .auth import LoginInputModel, ValidationError
+
+    client_ip = request.client.host if request.client else "local"
+    try:
+        dto = LoginInputModel.from_dict(body)
+        auth_svc = _get_auth_service()
+        user_vm, token, ttl = await run_in_threadpool(auth_svc.login, dto, client_ip)
+    except ValidationError as exc:
+        status = 429 if "quá nhiều lần" in str(exc).lower() else 401
+        return JSONResponse(
+            {"error": str(exc), "field_errors": exc.field_errors}, status_code=status
+        )
+
+    resp = JSONResponse(
+        {"authenticated": True, "user": user_vm.to_dict()},
+        status_code=200,
+        headers={"Cache-Control": "no-store"},
+    )
+    _set_auth_cookie(resp, request, token, ttl)
+    return resp
+
+
+async def api_auth_logout(request: Request) -> Response:
+    resp = JSONResponse({"ok": True, "authenticated": False}, headers={"Cache-Control": "no-store"})
+    _clear_auth_cookie(resp, request)
+    return resp
+
+
+async def api_account_change_password(request: Request) -> Response:
+    user, err = _require_auth(request)
+    if err is not None:
+        return err
+    try:
+        body = await request.json()
+        if not isinstance(body, dict):
+            raise ValueError("Invalid body")
+    except Exception:
+        return JSONResponse({"error": "Dữ liệu không hợp lệ."}, status_code=400)
+
+    from .auth import ChangePasswordInputModel, ValidationError
+
+    try:
+        dto = ChangePasswordInputModel.from_dict(body)
+        auth_svc = _get_auth_service()
+        await run_in_threadpool(auth_svc.change_password, user.id, dto)
+    except ValidationError as exc:
+        return JSONResponse(
+            {"error": str(exc), "field_errors": exc.field_errors}, status_code=400
+        )
+
+    return JSONResponse({"ok": True, "message": "Đã cập nhật mật khẩu thành công."}, headers={"Cache-Control": "no-store"})
+
+
+async def api_account_history(request: Request) -> Response:
+    user, err = _require_auth(request)
+    if err is not None:
+        return err
+    auth_svc = _get_auth_service()
+    rows = await run_in_threadpool(auth_svc.repo.list_history, user.id, 50)
+    return JSONResponse(
+        {"items": [r.to_dict() for r in rows]},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+async def api_account_delete_history(request: Request) -> Response:
+    user, err = _require_auth(request)
+    if err is not None:
+        return err
+    try:
+        hid = int(request.path_params.get("history_id", "0"))
+    except ValueError:
+        return JSONResponse({"error": "Mã lịch sử không hợp lệ."}, status_code=400)
+    auth_svc = _get_auth_service()
+    deleted = await run_in_threadpool(auth_svc.repo.delete_history_item, user.id, hid)
+    return JSONResponse({"ok": True, "deleted": deleted}, headers={"Cache-Control": "no-store"})
+
+
+async def api_admin_list_users(request: Request) -> Response:
+    _admin, err = _require_role(request, "Admin")
+    if err is not None:
+        return err
+    from .auth import UserViewModel
+
+    auth_svc = _get_auth_service()
+    users = await run_in_threadpool(auth_svc.repo.list_users)
+    return JSONResponse(
+        {"users": [UserViewModel.from_entity(u).to_dict() for u in users]},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+async def api_admin_update_role(request: Request) -> Response:
+    admin, err = _require_role(request, "Admin")
+    if err is not None:
+        return err
+    try:
+        target_id = int(request.path_params.get("user_id", "0"))
+        body = await request.json()
+        new_role = str(body.get("role") or "").strip()
+    except Exception:
+        return JSONResponse({"error": "Dữ liệu không hợp lệ."}, status_code=400)
+
+    from .auth import ValidationError
+
+    auth_svc = _get_auth_service()
+    try:
+        updated = await run_in_threadpool(auth_svc.set_user_role, admin.id, target_id, new_role)
+    except ValidationError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    except LookupError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=404)
+
+    return JSONResponse({"user": updated.to_dict()}, headers={"Cache-Control": "no-store"})
+
+
+async def api_admin_delete_user(request: Request) -> Response:
+    admin, err = _require_role(request, "Admin")
+    if err is not None:
+        return err
+    try:
+        target_id = int(request.path_params.get("user_id", "0"))
+    except ValueError:
+        return JSONResponse({"error": "Mã người dùng không hợp lệ."}, status_code=400)
+
+    from .auth import ValidationError
+
+    auth_svc = _get_auth_service()
+    try:
+        deleted = await run_in_threadpool(auth_svc.delete_user, admin.id, target_id)
+    except ValidationError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    except LookupError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=404)
+
+    return JSONResponse({"ok": True, "deleted": deleted}, headers={"Cache-Control": "no-store"})
+
+
 routes = [
     Route("/", endpoint=index_page, methods=["GET"]),
     Route("/api/health", endpoint=health_check, methods=["GET"]),
     Route("/_stcore/health", endpoint=health_check, methods=["GET"]),
     Route("/api/capabilities", endpoint=api_capabilities, methods=["GET"]),
+    Route("/api/auth/me", endpoint=api_auth_me, methods=["GET"]),
+    Route("/api/auth/register", endpoint=api_auth_register, methods=["POST"]),
+    Route("/api/auth/login", endpoint=api_auth_login, methods=["POST"]),
+    Route("/api/auth/logout", endpoint=api_auth_logout, methods=["POST"]),
+    Route("/api/account/password", endpoint=api_account_change_password, methods=["POST"]),
+    Route("/api/account/history", endpoint=api_account_history, methods=["GET"]),
+    Route("/api/account/history/{history_id}", endpoint=api_account_delete_history, methods=["DELETE"]),
+    Route("/api/admin/users", endpoint=api_admin_list_users, methods=["GET"]),
+    Route("/api/admin/users/{user_id}/role", endpoint=api_admin_update_role, methods=["PATCH"]),
+    Route("/api/admin/users/{user_id}", endpoint=api_admin_delete_user, methods=["DELETE"]),
     Route("/api/jobs", endpoint=api_create_job, methods=["POST"]),
     Route("/api/jobs/{job_id}", endpoint=api_get_job, methods=["GET"]),
     Route("/api/jobs/{job_id}", endpoint=api_delete_job, methods=["DELETE"]),
@@ -1219,6 +1537,6 @@ routes = [
 app = Starlette(
     debug=False,
     routes=routes,
-    middleware=[Middleware(LocalOriginMiddleware)],
+    middleware=[Middleware(LocalOriginMiddleware), Middleware(AuthCookieMiddleware)],
     lifespan=_lifespan,
 )

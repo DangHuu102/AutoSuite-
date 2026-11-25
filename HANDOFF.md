@@ -27,8 +27,14 @@ Phối hợp đa mô hình AI (**Top-Web UX Benchmark Designer**, **Low-RAM Back
    - Khai thác `pypdfium2` trích xuất tọa độ hộp ký tự (`charbox`), khoảng nhảy cột `0-width` trong cùng khối `BT...ET`, thông tin phông chữ đậm/nghiêng và đường kẻ khung bảng vector (`FPDF_PAGEOBJ_PATH`).
    - Phân cụm cột theo khoảng chiếu trục X, tính độ rộng cột tỷ lệ thực (`9638 dxa` khổ in A4), căn phải cột số liệu tiền tệ, gộp dòng ô xuống hàng, nhúng `<w:rFonts>` tiếng Việt (`Times New Roman` / `Arial` / `Segoe UI` + `word/styles.xml` + chuẩn hóa Unicode `NFC`), và ghi nén `.docx` dạng luồng từng trang (`O(1)` RAM).
 
+5. **Hệ thống Tài khoản, Đăng nhập / Đăng ký & Phân quyền RBAC (`src/officeflow/auth.py` — v0.3.1)**:
+   - Thiết kế theo mô hình phân lớp MVC chuẩn (*Domain Models* `UserEntity`/`ConversionHistoryEntity`, *Input DTO* `RegisterInputModel`/`LoginInputModel`/`ChangePasswordInputModel` có kiểm tra trường như `ModelState`, *View Model* `UserViewModel` tuyệt đối không lộ `password_hash`, *SQLite WAL Repository*, *AuthService*).
+   - **Bảo mật phiên Cookie**: Băm mật khẩu bằng `scrypt` kèm salt ngẫu nhiên 16 byte; cấp cookie `HttpOnly` + `SameSite=Lax` ký HMAC-SHA256 kèm **Sliding Expiration** (mặc định 2 giờ, hoặc 7 ngày khi chọn *Ghi nhớ đăng nhập*); chống dò mật khẩu brute-force (`10` lần sai / 5 phút).
+   - **Phân quyền theo Vai trò (Role-Based Authorization)**: Tài khoản đăng ký đầu tiên tự động nhận vai trò **`Admin`**, các tài khoản sau là **`User`**. Bảo vệ rõ ràng `401 Unauthorized` (chưa đăng nhập) và `403 Forbidden` (không đủ quyền `Admin` khi truy cập `/api/admin/*` hoặc `#admin`).
+   - **Lịch sử chuyển đổi cá nhân (`#account`)**: Người dùng đã đăng nhập tự động được lưu lịch sử các lô PDF/Word đã chuyển trong SQLite, có thể đổi mật khẩu và quản lý lịch sử của riêng mình.
+
 ## 2. Trạng thái kiểm thử & vận hành
 
-- **Kiểm thử tự động**: **33/33 bài kiểm thử PASS** (`tests/test_webapp.py`, `test_naming_and_validation.py`, `test_staging_batch_and_reporting.py`, `test_ai_filter_and_cli.py`, `test_integration_converters.py`, `test_phase11_merge_and_doctor.py`).
+- **Kiểm thử tự động**: **35/35 bài kiểm thử PASS** (`tests/test_auth.py`, `tests/test_webapp.py`, `test_naming_and_validation.py`, `test_staging_batch_and_reporting.py`, `test_ai_filter_and_cli.py`, `test_integration_converters.py`, `test_phase11_merge_and_doctor.py`).
 - **Dịch vụ chạy ngầm 24/24 trên máy**: `src/officeflow/daemon_24x7.py` + `Startup\AutoSuite-24x7.vbs` tự động duy trì Uvicorn tại `http://autosuite.localhost:8501`.
 - **GitHub Remote**: `https://github.com/DangHuu102/AutoSuite-.git` (tự động commit & push sau mỗi bản nâng cấp).

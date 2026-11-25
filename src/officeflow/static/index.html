@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <title>AutoSuite — Chuyển đổi PDF, Word &amp; OCR tốc độ cao</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Crect width='36' height='36' rx='9' fill='%232563eb'/%3E%3Cpath d='M10 11h10l6 6v8a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V13a2 2 0 0 1 2-2z' fill='%23fff'/%3E%3Cpath d='M20 11v6h6' fill='%2393c5fd'/%3E%3Cpath d='M12 21h10M12 17h6' stroke='%232563eb' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/static/styles.css?v=3">
+  <link rel="stylesheet" href="/static/styles.css?v=4">
 </head>
 <body>
   <div id="drag-overlay" class="drag-overlay" hidden aria-hidden="true">
@@ -41,6 +41,21 @@
           <span class="step-arrow" aria-hidden="true">›</span>
           <span id="step-pill-3" class="step-pill"><span class="step-num">3</span> Tải xuống</span>
         </nav>
+
+        <div id="auth-guest-controls" class="auth-bar">
+          <a href="#login" id="nav-btn-login" class="btn-auth-ghost">Đăng nhập</a>
+          <a href="#signup" id="nav-btn-signup" class="btn-auth-primary">Đăng ký</a>
+        </div>
+
+        <div id="auth-user-controls" class="auth-user-bar" hidden>
+          <a href="#account" id="nav-user-pill" class="user-pill" title="Tài khoản &amp; Lịch sử chuyển đổi">
+            <span id="nav-user-avatar" class="user-avatar">U</span>
+            <span id="nav-user-name" class="user-name-text">User</span>
+            <span id="nav-user-role" class="role-badge">User</span>
+          </a>
+          <a href="#admin" id="nav-btn-admin" class="btn-auth-admin" hidden title="Quản trị người dùng">🛡️ Quản trị</a>
+          <button type="button" id="nav-btn-logout" class="btn-auth-ghost" title="Đăng xuất">Thoát</button>
+        </div>
       </div>
     </div>
   </header>
@@ -308,6 +323,15 @@
         </details>
       </div>
 
+      <div id="guest-history-nudge" class="guest-nudge" hidden>
+        <span>💡 Muốn lưu lại lịch sử chuyển đổi trên tài khoản của bạn?</span>
+        <div class="guest-nudge-links">
+          <a href="#login" class="btn-link">Đăng nhập</a>
+          <span>·</span>
+          <a href="#signup" class="btn-link">Đăng ký miễn phí</a>
+        </div>
+      </div>
+
       <!-- Reset & Audit Report Footer -->
       <div id="download-footer-bar" class="download-footer-bar" hidden>
         <button type="button" id="btn-convert-another" class="btn btn-reset">
@@ -320,8 +344,199 @@
         </div>
       </div>
     </section>
+
+    <!-- VIEW 4: LOGIN & SIGN UP (Cookie Auth + Sliding Expiration) -->
+    <section id="view-auth" class="view-panel" hidden>
+      <div class="card auth-card">
+        <div class="auth-tabs" role="tablist">
+          <button type="button" role="tab" id="tab-auth-login" class="auth-tab active">Đăng nhập</button>
+          <button type="button" role="tab" id="tab-auth-signup" class="auth-tab">Đăng ký tài khoản</button>
+        </div>
+
+        <div id="auth-error-box" class="alert alert-error" hidden></div>
+
+        <!-- Login Form -->
+        <form id="form-login" class="auth-form" novalidate>
+          <div class="auth-head">
+            <h2>Chào mừng trở lại</h2>
+            <p>Đăng nhập để xem lịch sử chuyển đổi và quản lý tài khoản AutoSuite của bạn.</p>
+          </div>
+
+          <div class="form-field">
+            <label for="login-identifier">Email hoặc Tên người dùng</label>
+            <input type="text" id="login-identifier" autocomplete="username" required placeholder="vd: name@example.com hoặc nguyenvana">
+            <span id="err-login-identifier" class="field-error"></span>
+          </div>
+
+          <div class="form-field">
+            <label for="login-password">Mật khẩu</label>
+            <div class="pw-input-wrap">
+              <input type="password" id="login-password" autocomplete="current-password" required placeholder="Nhập mật khẩu">
+              <button type="button" class="btn-pw-toggle" data-pw-target="login-password" aria-label="Hiện/ẩn mật khẩu">👁</button>
+            </div>
+            <span id="err-login-password" class="field-error"></span>
+          </div>
+
+          <label class="checkbox-row">
+            <input type="checkbox" id="login-remember" checked>
+            <span>Ghi nhớ đăng nhập (7 ngày · Sliding Cookie)</span>
+          </label>
+
+          <button type="submit" id="btn-submit-login" class="btn btn-cobalt btn-hero">
+            🔐 Đăng nhập
+          </button>
+
+          <div class="auth-footer-switch">
+            Chưa có tài khoản? <a href="#signup" class="btn-link">Tạo tài khoản mới</a>
+          </div>
+        </form>
+
+        <!-- Sign Up Form (RegisterInputModel) -->
+        <form id="form-signup" class="auth-form" hidden novalidate>
+          <div class="auth-head">
+            <h2>Tạo tài khoản AutoSuite</h2>
+            <p>Đăng ký nhanh miễn phí. Tài khoản đầu tiên trên máy chủ sẽ tự động có vai trò Quản trị (Admin).</p>
+          </div>
+
+          <div class="form-field">
+            <label for="signup-username">Tên người dùng</label>
+            <input type="text" id="signup-username" autocomplete="username" minlength="3" maxlength="40" required placeholder="vd: Nguyễn Văn An">
+            <span id="err-signup-username" class="field-error"></span>
+          </div>
+
+          <div class="form-field">
+            <label for="signup-email">Địa chỉ Email</label>
+            <input type="email" id="signup-email" autocomplete="email" maxlength="120" required placeholder="vd: an.nguyen@example.com">
+            <span id="err-signup-email" class="field-error"></span>
+          </div>
+
+          <div class="form-field">
+            <label for="signup-password">Mật khẩu (tối thiểu 6 ký tự)</label>
+            <div class="pw-input-wrap">
+              <input type="password" id="signup-password" autocomplete="new-password" minlength="6" maxlength="100" required placeholder="Ít nhất 6 ký tự">
+              <button type="button" class="btn-pw-toggle" data-pw-target="signup-password" aria-label="Hiện/ẩn mật khẩu">👁</button>
+            </div>
+            <span id="err-signup-password" class="field-error"></span>
+          </div>
+
+          <div class="form-field">
+            <label for="signup-confirm">Xác nhận mật khẩu</label>
+            <div class="pw-input-wrap">
+              <input type="password" id="signup-confirm" autocomplete="new-password" minlength="6" maxlength="100" required placeholder="Nhập lại mật khẩu">
+              <button type="button" class="btn-pw-toggle" data-pw-target="signup-confirm" aria-label="Hiện/ẩn mật khẩu">👁</button>
+            </div>
+            <span id="err-signup-confirm" class="field-error"></span>
+          </div>
+
+          <button type="submit" id="btn-submit-signup" class="btn btn-emerald btn-hero">
+            ✨ Đăng ký &amp; Vào sử dụng ngay
+          </button>
+
+          <div class="auth-footer-switch">
+            Đã có tài khoản? <a href="#login" class="btn-link">Đăng nhập ngay</a>
+          </div>
+        </form>
+
+        <div class="auth-back-row">
+          <a href="#upload" class="muted-link">← Quay lại công cụ chuyển đổi tệp</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 5: ACCOUNT PROFILE & PERSONAL HISTORY ([Authorize]) -->
+    <section id="view-account" class="view-panel" hidden>
+      <div class="card account-header-card">
+        <div class="account-profile-row">
+          <div id="account-avatar-lg" class="avatar-lg">U</div>
+          <div class="account-profile-meta">
+            <div class="account-name-line">
+              <h2 id="account-username">Người dùng</h2>
+              <span id="account-role-badge" class="role-badge">User</span>
+            </div>
+            <div id="account-email" class="muted-meta"></div>
+            <div id="account-created" class="muted-meta"></div>
+          </div>
+          <div class="account-header-actions">
+            <a href="#upload" class="btn btn-cobalt">⚡ Chuyển đổi tệp mới</a>
+            <button type="button" id="btn-account-logout" class="btn btn-reset">Đăng xuất</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:1rem;">
+        <div class="section-head-row">
+          <h3>📜 Lịch sử chuyển đổi của bạn</h3>
+          <button type="button" id="btn-refresh-history" class="btn-mini">Làm mới</button>
+        </div>
+        <div id="history-empty" class="muted-meta" style="padding:1rem 0;">Chưa có lượt chuyển đổi nào được lưu. Hãy chuyển đổi một tệp để bắt đầu!</div>
+        <ul id="history-list" class="history-list"></ul>
+      </div>
+
+      <details id="drawer-change-pw" class="drawer" style="margin-top:1rem;">
+        <summary class="drawer-summary">
+          <span>🔑 Đổi mật khẩu tài khoản</span>
+          <span class="drawer-chevron" aria-hidden="true">▾</span>
+        </summary>
+        <div class="drawer-body">
+          <div id="pw-change-msg" class="alert" hidden></div>
+          <form id="form-change-pw" class="auth-form" style="max-width:440px;">
+            <div class="form-field">
+              <label for="pw-current">Mật khẩu hiện tại</label>
+              <input type="password" id="pw-current" required autocomplete="current-password">
+            </div>
+            <div class="form-field">
+              <label for="pw-new">Mật khẩu mới (≥ 6 ký tự)</label>
+              <input type="password" id="pw-new" minlength="6" required autocomplete="new-password">
+            </div>
+            <div class="form-field">
+              <label for="pw-confirm">Xác nhận mật khẩu mới</label>
+              <input type="password" id="pw-confirm" minlength="6" required autocomplete="new-password">
+            </div>
+            <button type="submit" id="btn-save-pw" class="btn btn-cobalt">Cập nhật mật khẩu</button>
+          </form>
+        </div>
+      </details>
+    </section>
+
+    <!-- VIEW 6: ADMIN USER & ROLE MANAGEMENT ([Authorize(Roles="Admin")]) -->
+    <section id="view-admin" class="view-panel" hidden>
+      <div id="admin-forbidden-card" class="card empty-result-card" hidden>
+        <h2>🛡️ 403 — Không có quyền truy cập</h2>
+        <p>Khu vực này được bảo vệ bởi cơ chế Phân quyền theo Vai trò (<code>Role = "Admin"</code>). Tài khoản hiện tại của bạn chỉ có quyền <strong>User</strong>.</p>
+        <a href="#upload" class="btn btn-cobalt">← Quay lại trang chính</a>
+      </div>
+
+      <div id="admin-panel-card" class="card" hidden>
+        <div class="section-head-row">
+          <div>
+            <h2 style="margin:0;">🛡️ Quản trị người dùng &amp; Phân quyền</h2>
+            <p class="muted-meta" style="margin:.2rem 0 0;">Quản lý tài khoản đã đăng ký và phân quyền Admin / User.</p>
+          </div>
+          <div style="display:flex;gap:.5rem;">
+            <button type="button" id="btn-refresh-admin" class="btn-mini">Làm mới</button>
+            <a href="#upload" class="btn-mini" style="text-decoration:none;color:inherit;">← Trang chính</a>
+          </div>
+        </div>
+
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Tên người dùng</th>
+                <th>Email</th>
+                <th>Vai trò</th>
+                <th>Ngày tạo</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="admin-users-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   </main>
 
-  <script src="/static/app.js?v=3" defer></script>
+  <script src="/static/app.js?v=4" defer></script>
 </body>
 </html>
